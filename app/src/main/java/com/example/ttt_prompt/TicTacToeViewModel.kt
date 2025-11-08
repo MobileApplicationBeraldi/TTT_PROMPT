@@ -37,6 +37,7 @@ class TicTacToeViewModel(
 
     private fun agentMove() {
         viewModelScope.launch {
+            val ciccio = 0
             isBoardEnabled = false
             isAgentThinking = true
             val move = getAgentMoveUseCase.getMove(board)
