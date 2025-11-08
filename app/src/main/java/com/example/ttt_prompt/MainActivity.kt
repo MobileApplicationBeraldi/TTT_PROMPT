@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.ttt_prompt.domain.usecase.GameState
@@ -62,7 +63,8 @@ fun TicTacToeScreen(viewModel: TicTacToeViewModel) {
                             onClick = { viewModel.mymove(rowIndex, colIndex) },
                             modifier = Modifier
                                 .padding(4.dp)
-                                .size(100.dp),
+                                .size(100.dp)
+                                .testTag("cell_${rowIndex}_${colIndex}"),
                             shape = RectangleShape,
                             enabled = viewModel.isBoardEnabled
                         ) {
@@ -74,7 +76,7 @@ fun TicTacToeScreen(viewModel: TicTacToeViewModel) {
         }
 
         if (viewModel.isAgentThinking) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(modifier = Modifier.testTag("agent_thinking_indicator"))
         }
 
         if (gameState != GameState.Continue) {

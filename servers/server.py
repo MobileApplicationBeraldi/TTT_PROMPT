@@ -11,8 +11,12 @@ EPSILON = 0.1
 
 app = Flask(__name__)
 
+# --- Variabili Globali ---
 q_table = {}
 agent_history_for_current_game = []
+# Nuove variabili per le statistiche
+total_games_played = 0
+total_reward = 0.0
 
 def get_state_key(board):
     return "".join("".join(str(c) for c in row) for row in board)
@@ -87,6 +91,14 @@ def update_q_table_from_history(history, final_reward):
         reward *= GAMMA
     print(f"Q-Table aggiornata. Ricompensa finale applicata: {final_reward}")
 
+def record_game_and_print_stats(reward):
+    """Aggiorna le statistiche globali e le stampa."""
+    global total_games_played, total_reward
+    total_games_played += 1
+    total_reward += reward
+    average_reward = total_reward / total_games_played if total_games_played > 0 else 0
+    print(f"--- Partita N.{total_games_played} terminata. Ricompensa: {reward:.1f}. Ricompensa media: {average_reward:.3f} ---")
+
 @app.route('/move', methods=['POST'])
 def get_move():
     global agent_history_for_current_game
@@ -109,10 +121,12 @@ def get_move():
     if winner == 'O':
         update_q_table_from_history(agent_history_for_current_game, 1.0)
         save_q_table(q_table)
+        record_game_and_print_stats(1.0)
         agent_history_for_current_game.clear()
     elif winner == 'draw':
-        update_q_table_from_history(agent_history_for_current_game, 0.5)
+        update_q_table_from_history(agent_history_for_current_game, 0.0) # Ricompensa per pareggio a 0
         save_q_table(q_table)
+        record_game_and_print_stats(0.0)
         agent_history_for_current_game.clear()
 
     print(f"Board ricevuta. Mossa dell'agente: {action}")
@@ -128,6 +142,7 @@ def post_turn():
         print("L'utente ha vinto. Apprendo dalla sconfitta...")
         update_q_table_from_history(agent_history_for_current_game, -1.0) # Punizione
         save_q_table(q_table)
+        record_game_and_print_stats(-1.0)
         agent_history_for_current_game.clear()
     return jsonify({'status': 'ok'})
 
