@@ -10,7 +10,9 @@ import kotlinx.coroutines.launch
 
 class TicTacToeViewModel(
     private val getAgentMoveUseCase: GetAgentMoveUseCase = GetRemoteAgentMoveUseCase(),
-    private val checkWinConditionUseCase: CheckWinConditionUseCase = CheckWinConditionUseCaseImpl()
+    private val checkWinConditionUseCase: CheckWinConditionUseCase = CheckWinConditionUseCaseImpl(),
+    private val postTurnUseCase: PostTurnUseCase = PostTurnUseCaseImpl(),
+    private val resetGameUseCase: ResetGameUseCase = ResetGameUseCaseImpl()
 ) : ViewModel() {
     var board by mutableStateOf(List(3) { List(3) { "" } })
         private set
@@ -28,7 +30,18 @@ class TicTacToeViewModel(
 
     fun mymove(row: Int, col: Int) {
         if (board[row][col].isEmpty() && currentPlayer == GameConfig.USER_PLAYER && gameState == GameState.Continue) {
-            updateBoardAndCheckWinner(row, col)
+            // Applica la mossa dell'utente
+            val newBoard = board.toMutableList().map { it.toMutableList() }
+            newBoard[row][col] = GameConfig.USER_PLAYER
+            board = newBoard.map { it.toList() }
+
+            // Notifica il server della mossa dell'utente in background
+            postUserTurn()
+
+            // Controlla se l'utente ha vinto
+            gameState = checkWinConditionUseCase.check(board)
+
+            // Se la partita continua, tocca all'agente
             if (gameState == GameState.Continue) {
                 agentMove()
             }
@@ -37,33 +50,42 @@ class TicTacToeViewModel(
 
     private fun agentMove() {
         viewModelScope.launch {
-            val ciccio = 0
             isBoardEnabled = false
             isAgentThinking = true
             val move = getAgentMoveUseCase.getMove(board)
             isAgentThinking = false
+
             if (move != null) {
-                updateBoardAndCheckWinner(move.first, move.second)
+                val newBoard = board.toMutableList().map { it.toMutableList() }
+                newBoard[move.first][move.second] = GameConfig.AGENT_PLAYER
+                board = newBoard.map { it.toList() }
+                gameState = checkWinConditionUseCase.check(board)
             }
+
             if (gameState == GameState.Continue) {
+                currentPlayer = GameConfig.USER_PLAYER
                 isBoardEnabled = true
             }
         }
     }
 
-    private fun updateBoardAndCheckWinner(row: Int, col: Int) {
-        val newBoard = board.toMutableList().map { it.toMutableList() }
-        newBoard[row][col] = currentPlayer
-        board = newBoard.map { it.toList() }
-        currentPlayer = if (currentPlayer == GameConfig.USER_PLAYER) GameConfig.AGENT_PLAYER else GameConfig.USER_PLAYER
-        gameState = checkWinConditionUseCase.check(board)
+    private fun postUserTurn() {
+        viewModelScope.launch {
+            postTurnUseCase(board)
+        }
     }
 
     fun resetGame() {
+        // Resetta lo stato locale
         board = List(3) { List(3) { "" } }
         currentPlayer = GameConfig.USER_PLAYER
         gameState = GameState.Continue
         isBoardEnabled = true
         isAgentThinking = false
+
+        // Notifica il server del reset
+        viewModelScope.launch {
+            resetGameUseCase()
+        }
     }
 }

@@ -22,8 +22,28 @@ class RetrofitTicTacToeApiService(baseUrl: String = GameConfig.BASE_URL) : TicTa
             Log.d("ApiService", "Received move from server: ${response.move}")
             Pair(response.move[0], response.move[1])
         } catch (e: Exception) {
-            Log.e("ApiService", "Error calling API", e)
+            Log.e("ApiService", "Error calling getMove API", e)
             null
+        }
+    }
+
+    override suspend fun postTurn(board: Board) {
+        Log.d("ApiService", "Posting user turn to server: $board")
+        try {
+            api.postTurn(MoveRequest(board))
+            Log.d("ApiService", "Successfully posted turn.")
+        } catch (e: Exception) {
+            Log.e("ApiService", "Error calling postTurn API", e)
+        }
+    }
+
+    override suspend fun reset() {
+        Log.d("ApiService", "Notifying server of game reset.")
+        try {
+            api.reset()
+            Log.d("ApiService", "Successfully notified reset.")
+        } catch (e: Exception) {
+            Log.e("ApiService", "Error calling reset API", e)
         }
     }
 }

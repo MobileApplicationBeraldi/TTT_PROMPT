@@ -6,6 +6,8 @@ typealias Board = List<List<String>>
 
 interface TicTacToeApiService {
     suspend fun getMove(board: Board): Pair<Int, Int>?
+    suspend fun postTurn(board: Board)
+    suspend fun reset()
 }
 
 interface GetAgentMoveUseCase {
@@ -14,7 +16,6 @@ interface GetAgentMoveUseCase {
 
 class GetRemoteAgentMoveUseCase(private val apiService: TicTacToeApiService = RetrofitTicTacToeApiService()) : GetAgentMoveUseCase {
     override suspend fun getMove(board: Board): Pair<Int, Int>? {
-
         return apiService.getMove(board)
     }
 }
