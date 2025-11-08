@@ -18,8 +18,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ttt_prompt.domain.usecase.GameState
 import com.example.ttt_prompt.ui.theme.TTT_PROMPTTheme
 
@@ -46,39 +48,49 @@ fun TicTacToeScreen(viewModel: TicTacToeViewModel) {
     val board = viewModel.board
     val gameState = viewModel.gameState
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Gray),
-        contentAlignment = Alignment.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            board.forEachIndexed { rowIndex, row ->
-                Row {
-                    row.forEachIndexed { colIndex, cell ->
-                        Button(
-                            onClick = { viewModel.mymove(rowIndex, colIndex) },
-                            modifier = Modifier
-                                .padding(4.dp)
-                                .size(100.dp)
-                                .testTag("cell_${rowIndex}_${colIndex}"),
-                            shape = RectangleShape,
-                            enabled = viewModel.isBoardEnabled
-                        ) {
-                            Text(text = cell, style = MaterialTheme.typography.headlineLarge)
+        // Griglia di gioco
+        Box(contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                board.forEachIndexed { rowIndex, row ->
+                    Row {
+                        row.forEachIndexed { colIndex, cell ->
+                            Button(
+                                onClick = { viewModel.mymove(rowIndex, colIndex) },
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .size(100.dp)
+                                    .testTag("cell_${rowIndex}_${colIndex}"),
+                                shape = RectangleShape,
+                                enabled = viewModel.isBoardEnabled
+                            ) {
+                                Text(text = cell, style = MaterialTheme.typography.headlineLarge)
+                            }
                         }
                     }
                 }
             }
+
+            if (viewModel.isAgentThinking) {
+                CircularProgressIndicator(modifier = Modifier.testTag("agent_thinking_indicator"))
+            }
         }
 
-        if (viewModel.isAgentThinking) {
-            CircularProgressIndicator(modifier = Modifier.testTag("agent_thinking_indicator"))
-        }
+        Spacer(modifier = Modifier.height(32.dp))
 
+        // Sezione Statistiche
+        GameStats(viewModel)
+
+        // Overlay di fine partita
         if (gameState != GameState.Continue) {
             Box(
                 modifier = Modifier
@@ -97,6 +109,20 @@ fun TicTacToeScreen(viewModel: TicTacToeViewModel) {
                     Text(text = "Click to continue", style = MaterialTheme.typography.bodyLarge, color = Color.White)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun GameStats(viewModel: TicTacToeViewModel) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("STATISTICHE", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(text = "Giocate: ${viewModel.gamesPlayed}")
+            Text(text = "Vinte: ${viewModel.gamesWon}")
+            Text(text = "Perse: ${viewModel.gamesLost}")
+            Text(text = "Pari: ${viewModel.gamesDrawn}")
         }
     }
 }

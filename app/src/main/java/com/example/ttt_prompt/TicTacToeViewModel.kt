@@ -26,22 +26,27 @@ class TicTacToeViewModel(
     var gameState by mutableStateOf<GameState>(GameState.Continue)
         private set
 
+    // Statistiche
+    var gamesPlayed by mutableStateOf(0)
+        private set
+    var gamesWon by mutableStateOf(0)
+        private set
+    var gamesLost by mutableStateOf(0)
+        private set
+    var gamesDrawn by mutableStateOf(0)
+        private set
+
     private var currentPlayer by mutableStateOf(GameConfig.USER_PLAYER)
 
     fun mymove(row: Int, col: Int) {
         if (board[row][col].isEmpty() && currentPlayer == GameConfig.USER_PLAYER && gameState == GameState.Continue) {
-            // Applica la mossa dell'utente
             val newBoard = board.toMutableList().map { it.toMutableList() }
             newBoard[row][col] = GameConfig.USER_PLAYER
             board = newBoard.map { it.toList() }
 
-            // Notifica il server della mossa dell'utente in background
             postUserTurn()
+            checkGameStatus()
 
-            // Controlla se l'utente ha vinto
-            gameState = checkWinConditionUseCase.check(board)
-
-            // Se la partita continua, tocca all'agente
             if (gameState == GameState.Continue) {
                 agentMove()
             }
@@ -59,7 +64,7 @@ class TicTacToeViewModel(
                 val newBoard = board.toMutableList().map { it.toMutableList() }
                 newBoard[move.first][move.second] = GameConfig.AGENT_PLAYER
                 board = newBoard.map { it.toList() }
-                gameState = checkWinConditionUseCase.check(board)
+                checkGameStatus()
             }
 
             if (gameState == GameState.Continue) {
@@ -75,15 +80,28 @@ class TicTacToeViewModel(
         }
     }
 
+    private fun checkGameStatus() {
+        val currentGameState = checkWinConditionUseCase.check(board)
+        if (currentGameState != GameState.Continue) {
+            gamesPlayed++
+            when (currentGameState) {
+                is GameState.Win -> {
+                    if (currentGameState.winner == GameConfig.USER_PLAYER) gamesWon++ else gamesLost++
+                }
+                GameState.Draw -> gamesDrawn++
+                else -> {}
+            }
+        }
+        gameState = currentGameState
+    }
+
     fun resetGame() {
-        // Resetta lo stato locale
         board = List(3) { List(3) { "" } }
         currentPlayer = GameConfig.USER_PLAYER
         gameState = GameState.Continue
         isBoardEnabled = true
         isAgentThinking = false
 
-        // Notifica il server del reset
         viewModelScope.launch {
             resetGameUseCase()
         }

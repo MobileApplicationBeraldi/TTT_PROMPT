@@ -1,25 +1,44 @@
+
 from flask import Flask, request, jsonify
 import json
 import random
 import os
+import math
 
 # --- Configurazione ---
 Q_TABLE_FILE = "q_table.json"
-ALPHA = 0.1
+# Hyperparameters
 GAMMA = 0.9
 EPSILON = 0.1
+# Alpha (learning rate) dinamico
+ALPHA_START = 0.5
+ALPHA_MIN = 0.01
+ALPHA_DECAY_RATE = 0.9999
 
 app = Flask(__name__)
 
 # --- Variabili Globali ---
 q_table = {}
 agent_history_for_current_game = []
-# Nuove variabili per le statistiche
 total_games_played = 0
 total_reward = 0.0
 
-def get_state_key(board):
-    return "".join("".join(str(c) for c in row) for row in board)
+# --- Logica di Normalizzazione dello Stato ---
+def get_symmetries(board):
+    symmetries = []
+    current_board = board
+    for _ in range(4):
+        symmetries.append(current_board)
+        symmetries.append([list(row) for row in zip(*current_board)])
+        current_board = [list(row) for row in zip(*current_board[::-1])]
+    return symmetries
+
+def get_canonical_state_key(board):
+    symmetries = get_symmetries(board)
+    canonical_form = min([tuple(map(tuple, b)) for b in symmetries])
+    return "".join("".join(row) for row in canonical_form)
+
+# --------------------------------------------------------
 
 def get_available_actions(board):
     actions = []
@@ -53,8 +72,9 @@ def choose_action(board):
     if random.uniform(0, 1) < EPSILON:
         return random.choice(available_actions)
     else:
-        state_key = get_state_key(board)
+        state_key = get_canonical_state_key(board)
         state_q_values = q_table.get(state_key, {})
+
         if not state_q_values:
             return random.choice(available_actions)
 
@@ -77,22 +97,27 @@ def check_game_over(board):
     if not get_available_actions(board): return 'draw'
     return None
 
+def get_current_alpha():
+    """Calcola l'alpha corrente basato sul numero di partite giocate."""
+    # Decadimento esponenziale: alpha = start * (decay_rate ^ N_games)
+    return max(ALPHA_MIN, ALPHA_START * (ALPHA_DECAY_RATE ** total_games_played))
+
 def update_q_table_from_history(history, final_reward):
     global q_table
+    alpha = get_current_alpha()
     reward = final_reward
     for step in reversed(history):
-        state = step['state']
+        state_key = get_canonical_state_key(step['board'])
         action = step['action']
         
-        if state not in q_table: q_table[state] = {}
-        old_q = q_table[state].get(action, 0.0)
+        if state_key not in q_table: q_table[state_key] = {}
+        old_q = q_table[state_key].get(action, 0.0)
         
-        q_table[state][action] = old_q + ALPHA * (reward - old_q)
+        q_table[state_key][action] = old_q + alpha * (reward - old_q)
         reward *= GAMMA
-    print(f"Q-Table aggiornata. Ricompensa finale applicata: {final_reward}")
+    print(f"Q-Table aggiornata con alpha={alpha:.4f}. Ricompensa finale: {final_reward}")
 
 def record_game_and_print_stats(reward):
-    """Aggiorna le statistiche globali e le stampa."""
     global total_games_played, total_reward
     total_games_played += 1
     total_reward += reward
@@ -105,13 +130,12 @@ def get_move():
     data = request.get_json()
     board = data['board']
     
-    state_key = get_state_key(board)
     action = choose_action(board)
     
     if not action:
         return jsonify({'error': 'No available moves'}), 400
     
-    agent_history_for_current_game.append({'state': state_key, 'action': action_to_key(action)})
+    agent_history_for_current_game.append({'board': board, 'action': action_to_key(action)})
     
     temp_board = [row[:] for row in board]
     temp_board[action[0]][action[1]] = 'O'
@@ -124,7 +148,7 @@ def get_move():
         record_game_and_print_stats(1.0)
         agent_history_for_current_game.clear()
     elif winner == 'draw':
-        update_q_table_from_history(agent_history_for_current_game, 0.0) # Ricompensa per pareggio a 0
+        update_q_table_from_history(agent_history_for_current_game, 0.0)
         save_q_table(q_table)
         record_game_and_print_stats(0.0)
         agent_history_for_current_game.clear()
@@ -140,7 +164,7 @@ def post_turn():
     winner = check_game_over(board)
     if winner == 'X': # L'utente ha vinto
         print("L'utente ha vinto. Apprendo dalla sconfitta...")
-        update_q_table_from_history(agent_history_for_current_game, -1.0) # Punizione
+        update_q_table_from_history(agent_history_for_current_game, -1.0)
         save_q_table(q_table)
         record_game_and_print_stats(-1.0)
         agent_history_for_current_game.clear()

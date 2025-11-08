@@ -18,7 +18,7 @@ class AgentSimulationTest {
 
     @Test
     fun simulate100Games() {
-        val numberOfGames = 100
+        val numberOfGames = 1000
 
         for (game in 1..numberOfGames) {
             println("--- Inizio Partita di Test N.$game ---")
